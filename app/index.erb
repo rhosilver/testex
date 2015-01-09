@@ -1,8 +1,9 @@
 <div data-role="page" data-url="<%= Rho::Application.startURI %>/">
 
     
-  <div data-role="header" data-position="inline">
-    <h1>Testex</h1>
+  <div data-role="header" data-position="fixed">
+    <h1>AssetInspector</h1>
+<!--
     <% if Rho::RhoConnectClient.isLoggedIn %>
     <a href="<%= url_for :controller => :Settings, :action => :do_sync %>" class="ui-btn-left" data-icon="refresh">
       Sync
@@ -13,12 +14,36 @@
     <% else %>
         <a href="<%= url_for :controller => :Settings, :action => :login %>" class="ui-btn-right" data-icon="star">Login</a>
     <% end %>
+-->    
   </div>
 
   <div data-role="content">
     <ul data-role="listview">
-      <li><a href="#">Add link here...</a></li>
+    
+    <% if Login.logged_in? %>
+      <li data-role="list-divider">Welcome, <%= Login.login_fullname %></li>
+      <li><a href="/app/Asset">Inspect Assets</a></li>
+      
+      <% if Login.is_admin? %>
+      <li data-role="list-divider">Admin Menu</li>
+      <li><a href="<%= url_for :controller => Asset, :action => :index, :query => {:q_state => "pass"}%>">Assets:Pass</a></li>
+      <li><a href="<%= url_for :controller => Asset, :action => :index, :query => {:q_state => "wip"} %>">Assets:WIP </a></li>
+      <li><a href="<%= url_for :controller => Asset, :action => :index_ajax %>">Assets:AJAX </a></li>
+      <% end %>
+
+      <%
+        sim_states = { :RhoSim => "RhoSimulator", :NativeEmu => "Native Emulator" }
+        sim_states.default = "Real Device"
+       %>
+      <li data-role="list-divider">Running as: <%= sim_states[AppApplication.is_simulated?] %></li>
+      
+    <% else %>
+      <li><a href="/app/Login">Please log in first</a></li>
+    <% end %>
+      
     </ul>
   </div>
+  
+  <div data-role="footer" data-position="fixed"><p> </p></div>
 
 </div>

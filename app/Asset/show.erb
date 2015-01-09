@@ -1,0 +1,282 @@
+<div data-role="page" id="inspectView">
+<!-- 
+  ######################################################
+  ### INLINE STYLE MUST BE WITHIN DIV
+  ### OTHERWISE WILL ONLY BE APPLIED AFTER PAGE RELOAD
+  ######################################################
+-->  
+
+<style type='text/css'>
+
+/* Input validation and general */
+p.error-message {font-weight: bold; color: #B72913;} /* reddish */
+
+/*
+  ###########################################################
+  ### STATE COLORING AND POPUP SUPPORT
+  ###########################################################
+*/
+
+span.state_Pass { color: green;    font-weight: bold; }
+span.state_Skip { color: #FADB4E;  font-weight: bold; }
+span.state_Fail { color: red;      font-weight: bold; }
+span.state_N\/A {                                     } /* Defaults are fine, keeping here for completeness */
+
+#confirmHeader.state_Pass  {background: green;               }
+#confirmHeader.state_Skip  {background: #FADB4E; color:#333; }
+#confirmHeader.state_Fail  {background: #B72913;             }
+#confirmHeader.state_N\/A  {                                 } /* Defaults are fine, keeping here for completeness */
+/* 
+  This alows having a scrollable DIV
+  Want height of 50% of the screen, but setting height in % disables overflow
+  Thus, the height is dynamically adjusted by a script below based on screen size
+*/
+.popup-notes { overflow-y: auto; font-size: medium;}
+
+/* JQM adds some direct styling instead of class onto the popup box, so must brute-force the overrides */
+#popup-notes-popup, #popup-instr-popup {width: 100%; max-width: 100%!important; left:0px!important;}
+
+/*
+  ###########################################################
+  ### PICTURE SUPPORT
+  ###########################################################
+*/
+img.asset_pic_thumb {
+      max-width: 95%;
+      max-height: 100px;
+      width: auto;
+      height: auto;
+      border: 1px solid #777777;
+    }
+
+img.asset_pic_big {
+      max-width: 100%;
+      max-height: 97%; /* if you do 100% it might get bigger than the screen itself. Can be resolved through JS. */
+      width: auto;
+      height: auto;
+      border: 5px solid #333;
+    }
+
+
+/*
+  ###########################################################
+  ### SOME STUFF WE'RE NOT REALLY USING
+  ### BUT INTERESING FOR SELF STUDY
+  ###########################################################
+*/
+
+/* Prevent JQM textarea auto-growth.
+textarea { height: auto!important; }
+*/
+
+/* Ensure we're not hitting other grids (and don't use inline styling) 
+Shows the use of the sibling selector '>'
+#stats2 > .ui-block-a {width: 30%;}
+*/
+
+</style>
+
+
+<script type="text/javascript">
+// ############################################################
+// DON'T WORRY, THER ARE MORE COMMENTS IN THIS SCRIPT THAN CODE
+// ############################################################
+
+
+// ############################################################
+// ### STATE COLORING AND POPUP SUPPORT
+// ############################################################
+/* 
+   This part handles switching colours on headers and state labels based on the State selected
+   It consists of a function and a generated variable, which is used in that function
+   Normally you would have to duplicate the @@valid_states table in JS (and maintain!).
+    assetStates = ['Pass', 'Skip', 'Fail', 'N/A']
+   But this isn't good a good solution, in case we change the states. So we'll use the power of ERB
+*/
+
+// This essentially generates a string with all CSS classes for the following function, so we don't have to cycle
+// It also ensures, that if more states are added/removed/changed - there's nothing to maintain in our JS code
+// It takes all elements of @@valid_states, along with BAD_STATE, prepends "state_" prefix, joins into a single space-separated string.
+  assetStates = '<%= (Asset.valid_states+[Asset.BAD_STATE]).map{|s| "state_"+s}.join(" ") %>';
+ 
+  function ConfirmPopup(s) {
+    $("#confirmHeader").removeClass(assetStates).addClass('state_'+s); // Nice example of using selecting several elements at once and chaining with JQuery. Otherwise this would've been up to 20 lines of code. Note that thanks to assetStates we remove all state-related classes at once, while preserving other (JQM) ones
+    $("#confirmTitle").html(s);
+    $("#assetState").val(s);
+    
+    // Input validation
+    // Notes must be present
+    if ($("#assetNotes").val()   == "") { $("#warning-notes").show();   }
+    else                                { $("#warning-notes").hide();   }
+    // Picture must be present
+    if ($("#assetPicture").val() == "") { $("#warning-picture").show(); }
+    else                                { $("#warning-picture").hide(); }
+
+    // If any warning messages are visible - block the checkbox. Otherwise - unblock.
+    if ($("p.error-message").is(":visible")) 
+            { $("#consent").checkboxradio('disable') }
+    else    { $("#consent").checkboxradio('enable' ) }
+  }
+
+// Dynamically set the height on the notes field in the history popup, as mentioned in the CSS style section
+// Note how we're binding same handler to multiple events, just like with multiple elements or classes  
+// Note that '.popup-notes' is a class - we're resizing ALL popups at once!
+  $(document).on("pageinit resize", "#inspectView", function() {  $(".popup-notes").height($(window).height() / 2);  });
+
+// ############################################################
+// ### PICTURE SUPPORT
+// ############################################################
+
+// This function is called from Camera callback and on page init
+// Set picture background to the placeholder or the 'real URL'
+function update_pic(p_url,p_src) {
+    //workaround for webkit not loading local files anymore
+    $("img#asset_pic").attr('src', p_src || "/public/images/_img_placeholder.jpg");
+    $("input#assetPicture").val(p_url);
+}
+  
+</script>
+
+<!-- 
+  ######################################################
+  ### PAGE START
+  ######################################################
+-->  
+
+  <div data-role="header" data-position="inline">
+    <h1>Asset Inspection</h1>
+    <a href="<%= url_for :action => :index %>" class="ui-btn-left" data-icon="back" data-direction="reverse">Cancel</a>
+    <% if (Login.is_admin?) %>
+    <a href="<%= url_for  url_for :action => :edit, :id => @asset.object %>" class="ui-btn-right" data-icon="star">Edit</a>
+    <% end %>
+
+  </div><!-- end header -->
+
+  <div data-role="content">
+    <form method="POST" id="inspectForm" action="<%= url_for :action => :inspect_update %>">
+      <input type="hidden" name="id" value="<%= @asset.object %>"/>
+      <input type="hidden" name="asset[State]" id="assetState"/>
+
+      <div class="itemLabel"><%= @asset.Name %></div>
+      <div class="itemValue"><%= @asset.Description %></div>
+
+      <hr style="border-color: #777777">
+
+      <!-- State and popups  -->
+      <fieldset class="ui-grid-a" id="stats2">
+
+        <div class="ui-block-a"><div class="itemLabel">Serial#:</div></div>
+        <div class="ui-block-b"><div class="itemValue"><%= @asset.SN %></div></div>
+
+        <div class="ui-block-a"><div class="itemLabel">Inv#:</div></div>
+        <div class="ui-block-b"><div class="itemValue"><%= @asset.InvN %></div></div>
+        
+        <div class="ui-block-a"><div class="itemLabel">Last Inspected:</div></div>
+        <div class="ui-block-b"><div class="itemValue"><%= @asset.insp_date(:full) %></div></div>
+
+        <div class="ui-block-a">
+          <div style="text-align: center; font-size: 250%;"><span class="state_<%= @asset.State %>" style="vertical-align: middle;">
+            <%= @asset.State %>
+          </span></div>
+        </div>
+        
+        <div class="ui-block-b">
+          <a href="#popup-notes" data-rel="popup" data-position-to="window" data-transition="pop" data-role="button"  data-mini="true">History</a>
+          <a href="#popup-instr" data-rel="popup" data-position-to="window" data-transition="pop" data-role="button"  data-mini="true">Inspection Procedure</a>
+        </div>
+      </fieldset><!-- State and popups  -->
+      
+      <hr style="border-color: #777777">
+        
+      <!-- Camera and picture support -->
+      <div class="ui-grid-a" id="pic_grid">
+        <div class="ui-block-a" style="text-align: center;">
+          <a href="#popup-img" data-rel="popup" data-position-to="window" data-transition="pop">
+            <img class="asset_pic_thumb" id="asset_pic" src="<%= @asset.Picture(:with_placeholder) %>"/>
+          </a>
+          <input type="hidden" name="asset[Picture]" id="assetPicture" value="<%= @asset.Picture %>"/>
+        </div>
+        
+        <div class="ui-block-b">
+          <a href="javascript:$.get('<%= url_for :action => :get_a_pic %>');" data-role="button" data-mini="true">Take New Picture</a>
+        </div>
+      </div><!-- Camera and picture support -->
+
+      <hr style="border-color: #777777">
+
+      <div class="itemLabel">Enter new inspection notes<br>(input field will grow automatically):</div>
+      <textarea id="assetNotes" name="asset[Notes]" rows="8" style="width: 100%; border-color: #777777" <% placeholder ("Notes") %>></textarea> 
+
+    </form>
+  </div><!-- end content. Note that popups are separated out. -->
+
+  <!-- History notes dialog popup -->  
+  <div data-role="popup" id="popup-notes" data-overlay-theme="b" data-theme="b">
+    <div data-role="header" data-theme="a"><h1>History</h1></div>
+    <div role="main" class="ui-content">
+      <h3 class="ui-title">History of previous inspections</h3>
+      <div class="popup-notes ui-body-a"><%= @asset.Notes.gsub(/\n/,'<br>') %></div>
+      <a href="#" data-role="button" data-position="fixed" data-theme="a" data-rel="back">Back</a>
+    </div>
+  </div>
+
+  <!-- Instructions notes popup -->  
+  <div data-role="popup" id="popup-instr" data-overlay-theme="b" data-theme="b">
+    <div data-role="header" data-theme="a"><h1>Instructions</h1></div>
+    <div role="main" class="ui-content">
+      <h3 class="ui-title">If you are unclear with any of the below, please contact your supervisor</h3>
+      <div class="popup-notes ui-body-a"><%= @asset.Instr.gsub(/\n/,'<br>') %></div>
+      <a href="#" data-role="button" data-position="fixed" data-theme="a" data-rel="back">Back</a>
+    </div>
+  </div>
+  <!-- HOMEWORK: convert two above popups into one, with JS actually filling the necessary data in -->
+
+  <!-- Image popup -->
+  <div data-role="popup" id="popup-img" data-overlay-theme="b" data-theme="b">
+      <img src="<%= @asset.Picture %>" id="asset_pic" class="asset_pic_big" onclick="$('#popup-img').popup('close');"/>
+  </div>
+
+  <!-- 
+      FOOTER with Action buttons Buttons call a popup dialog (DIV after the footer), which submits the form
+      Uses JS to colour the State Popup. Note that it's all outside the form
+      Illustrates: JQM Footers, Grids, Popups, JS and Jquery use for class manipulation
+  -->
+  <div data-role="footer" data-position="fixed">
+    <div class="ui-grid-b">
+
+      <div class="ui-block-a"><a href="#popupDialog-confirm" id="conf-Pass" onclick="ConfirmPopup('Pass')" data-role="button" data-theme="c" data-rel="popup" data-position-to="window" data-transition="pop" data-icon="check" >Pass</a></div>
+      <div class="ui-block-b"><a href="#popupDialog-confirm" id="conf-Skip" onclick="ConfirmPopup('Skip')" data-role="button" data-theme="c" data-rel="popup" data-position-to="window" data-transition="pop" data-icon="alert" >Skip</a></div>
+      <div class="ui-block-c"><a href="#popupDialog-confirm" id="conf-Fail" onclick="ConfirmPopup('Fail')" data-role="button" data-theme="c" data-rel="popup" data-position-to="window" data-transition="pop" data-icon="delete" >Fail</a></div>
+
+    <!--
+        HOMEWORK: Can you use Ruby to dynamically generate all the buttons?
+        Walk the hash: Asset.dump_states.each do |key, val|
+        Display button template with dynamically generated fields
+    -->
+    </div>
+  </div><!-- end footer -->
+
+  <!-- Confirmation dialog that submits the form -->
+  <div data-role="popup" id="popupDialog-confirm" data-overlay-theme="b" data-theme="b" data-dismissible="false" data-history="false" style="max-width:400px;">
+    
+    <!-- NOTE where question mark is located in the title -->
+    <div data-role="header" data-theme="a" id="confirmHeader"><h1><span id="confirmTitle">Confirm</span>?</h1> </div>
+    <div role="main" class="ui-content">
+      <h3 class="ui-title">Please confirm the inspection state</h3>
+      <p>Your ID and notes will be added to the log.</p>
+      <p>Date: <strong><%= Time.now.strftime('%Y-%m-%d, %k:%M:%S') %></strong></p>
+      <p class="error-message" id="warning-notes">Notes must be present! Confirm disabled!</p>
+      <p class="error-message" id="warning-picture">Picture must be present! Confirm  disabled!</p>
+            
+      <div id="consent-div"><!-- this is a wrapper that gets hidden when inputs are invalid, so that user cannot submit form -->
+        <label for="consent">I confirm that I followed inpection instructions thoroughly and fully</label>
+        <!-- this is very compact one-liner JS, but relies on the fact that checkbox is CLEAR by default! -->
+        <input type="checkbox" id="consent" data-mini="true" onchange="$('#conf_submit, #conf_back').toggleClass('ui-disabled');">      
+       
+        <a href="#" data-role="button" data-theme="b" id="conf_submit" class="ui-disabled" onclick="$('#inspectForm').submit()">Confirm Inspection</a>
+      </div><!-- consent-div -->
+      <a href="#" data-role="button" data-theme="a" id="conf_back" data-rel="back">Cancel</a>
+    </div>
+  </div><!-- end confirmation popup -->
+
+</div><!-- end view -->

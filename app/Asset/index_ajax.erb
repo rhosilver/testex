@@ -1,0 +1,113 @@
+<div data-role="page">
+<!-- 
+  ######################################################
+  ### INLINE STYLE MUST BE WITHIN DIV
+  ### OTHERWISE WILL ONLY BE APPLIED AFTER PAGE RELOAD
+  ######################################################
+-->  
+
+<style type='text/css'>
+
+/* bubble count overrides */
+span.state_Pass { background:green; color: white;}
+span.state_Skip { background:#FADB4E; color: #black;}
+span.state_Fail { background:red; color: white;}
+.ui-li-has-count .ui-li-count {text-decoration: none; font-weight: bolder;}
+/* */
+
+/* filter overrides */
+  .ui-body-c {text-shadow:none;}
+  .ui-input-text {color:black;}
+/* done */
+
+
+</style>
+
+<script type="text/javascript">
+
+function displayDetails(objid) {
+
+    var old_li_id = "";
+    //find the previous location of details div
+    //if exists - fold it and destroy it
+    old_div = $('#detailsDiv');
+    if ( old_div.length ) { // The $() always returns an object. Legth of 0 means no match found.
+      old_li_id = old_div.prev().attr('id');
+      /*
+        why will this code not display slide animation?
+          old_div.slideUp().
+          old_div.remove();
+        Because you need to ensure that remove() is triggered AFTER slideUp animation is complete! 
+      */  
+      old_div.slideUp(function() {old_div.remove();});
+
+      // Some eye candy
+      l_id = old_li_id.replace(/\./g, '\\\.');
+      $('li#'+l_id).prop('data-icon','arrow-d');
+      $('li#'+l_id).find('.ui-icon').removeClass('ui-icon-arrow-u').addClass('ui-icon-arrow-d');
+    }
+
+    // find the location for the new div
+    // jQuery wants escaping dots in selectors (CSS syntax requirement): '.' -> '\\.'
+    new_li = $("li#"+objid.replace(/\./g, '\\\.'));
+
+    //if the new_ID == old_ID - do nothing (simply fold the DIV)
+    //otherwise - request details and show
+    if (new_li.attr('id') != old_li_id) { 
+      var new_div = "<div id='detailsDiv' style='display:none;'></div>";
+      var new_data = "You shouldn't bee seeing this.. AJAX call totally failed.</div>";
+      // this is the request with chained callback functions
+      // so instead of x = $get; x.error(); x.always() we do $.get().error().always()
+      // Read more in JQuery docs
+      // THIS IS ASYNCHRONOUS CALL
+      $.get("<%= url_for :action => :request_details %>", {id: objid})
+          .done   (function(data,  status) { new_data = data; })
+          .fail   (function()              { new_data = "AJAX Error"; })
+          //note that this code shold be wrapped in .always
+          //AJAX calls are async, if left outside of $.get().always() - it may be executed BEFORE the call ends!
+          .always (function() {
+                  //another example of JQuery chaining
+                  $(new_div).insertAfter(new_li).html(new_data).slideDown();
+                                    
+                  // Some eye candy
+                  l_id = new_li.attr('id').replace(/\./g, '\\\.');
+                  $('li#'+l_id).prop('data-icon','arrow-u');
+                  $('li#'+l_id).find('.ui-icon').removeClass('ui-icon-arrow-d').addClass('ui-icon-arrow-u');
+                });
+    }
+    
+}
+
+
+</script>
+
+<!-- 
+  ######################################################
+  ### PAGE START
+  ######################################################
+-->  
+ 
+   
+	<div data-role="header" data-position="fixed">
+    <h1>Assets (AJAX)</h1>
+    <a href="<%= Rho::Application.startURI %>" class="ui-btn-left" data-icon="home" data-direction="reverse" <%= "data-ajax='false'" if is_bb6 %>>Home</a>
+	</div>
+
+  <div data-role="content">
+    <ul data-role="listview" data-filter="true">
+      <% @assets.each do |asset| %>
+      
+        <li id ="<%=asset.object %>" data-icon="arrow-d">
+            <a href="javascript:displayDetails('<%= asset.object %>');" >
+              <h2><%= asset.Name %></h2>
+              <p>Last inspected: <%= asset.insp_date(:day) %></p>
+              <span class="ui-li-count state_<%= asset.State %>"><%= asset.State %></span>
+            </a>
+        </li>
+      
+      <% end %>
+    </ul>
+  </div>
+
+
+</div>

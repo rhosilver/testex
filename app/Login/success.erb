@@ -1,0 +1,23 @@
+<!-- 
+    ################################
+    THIS VIEW IS NEVER REALLY CALLED
+              *  *  *  *  *
+    IT REMAINS HERE FOR TESTING ONLY
+    ################################ 
+-->
+<div data-role="page" data-add-back-btn="true">
+
+  <div data-role="header" data-position="fixed">
+    <h1>Login Succesful</h1>
+  </div>
+
+  <div data-role="content">
+    <% if Login.logged_in? then %>
+      Welcome, <strong><%= Login.login_fullname %></strong><br>
+      You are logged in as: <strong><%=Login.login_name %></strong>
+    <% else %>
+      Hm, seems like you're not logged in, <a href="<%= url_for :action => :index %>">try again</a>.
+    <% end %>  
+</div>
+
+</div>

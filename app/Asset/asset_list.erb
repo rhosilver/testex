@@ -1,0 +1,12 @@
+      <% @assets.each do |asset| %>
+      
+          <li>
+            <a href="<%= url_for :action => :show, :id => asset.object %>">
+              <p class="img_wrap"><img class="li_thumb" src="<%= asset.Picture(:with_placeholder) %>" /></p>
+              <h2><%= asset.Name %></h2>
+              <p>Last inspected: <%= asset.insp_date(:day) %></p>
+              <span class="ui-li-count state_<%= asset.State %>"><%= asset.State %></span>
+            </a>
+          </li>
+      
+      <% end %>

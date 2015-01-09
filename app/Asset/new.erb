@@ -1,0 +1,170 @@
+<div data-role="page" id="createView">
+<!-- 
+  ######################################################
+  ### INLINE STYLE MUST BE WITHIN DIV
+  ### OTHERWISE WILL ONLY BE APPLIED AFTER PAGE RELOAD
+  ######################################################
+-->  
+
+
+<style type="text/css">
+/* 
+  This overrides JQM issue when displayed in RhoSimulator 
+  For whatever reason the screen width is deemed too small
+  The alternative would be to use JQM grids
+*/
+@media all {        
+    .ui-field-contain div.ui-input-text,
+    .ui-field-contain textarea.ui-input-text,
+    .ui-field-contain .ui-input-search {
+        width: 60%;
+        display: inline-block;
+    }
+
+    .ui-field-contain label.ui-slider,
+    .ui-field-contain label.ui-input-text {
+        vertical-align: top;
+        display: inline-block;
+        width: 30%;
+        margin: 0 2% 0 0;
+    }
+}
+
+/* Some overrides for labels that should span the whole row */
+.lbl-full-row {width: 100%!important; margin-bottom: 1%!important ;}
+
+/* 
+  These are meta-classes for kewl input validation (see checkInputs function)
+  There is no need for formatting, we're just using them as 'tags'. Defining them here for awareness.
+  Homework: extend the use of 'maxlen' and 'len' classes to an arbitrary value (using string parsing in JS function)
+*/
+.required, .len-7, .maxlen-15 {}
+.required-mark {color: red;} /* This one is for some eye candy, used by starRequired function */
+/* */
+
+.error-message {
+    color: white; 
+    font-weight: bold; 
+    background-color: #F76933; /*red*/
+    padding: 0.5em;
+    border: 1px solid #A33;
+    border-radius: 6px; /* rounded corners */
+  }
+
+.hidden    {display: none; }
+
+</style>
+
+
+<script type="text/javascript">
+
+// Page Init. Functions defined below.
+$(document).on( "pageinit", "#createView", function( event ) { 
+      $("input[type=text], textarea").blur(checkInputs);
+      $("form#submitForm").submit(checkSubmit);
+      starRequired();
+});
+
+// Checks inputs for validity based on assigned CSS meta-classes
+// Displays and hides error messages, including error message container
+// Disables/enables Submit button based on the result
+// Return is required for form sumbit - 'return false' prevents form from submitting!
+function checkInputs () {
+
+        var is_error = false;
+
+        if ($(this).hasClass("required")  && ($(this).val().length == 0)) {is_error = true;}
+        if ($(this).hasClass("len-7")     && ($(this).val().length != 7)) {is_error = true;}
+        
+        // Validation failed - set the flag
+        if (is_error) {
+            $("#error-container").show();
+            $("#error-"+$(this).attr('id')).show();
+            $("#submit").button('disable'); // This is JQM call, not JQ. Simple "disabled" attribute will not work, since JQM does many DOM changes.
+            return false;
+        }
+
+        // Validated OK, clear the flag (and the container if needed)
+        else {
+            $("#error-"+$(this).attr('id')).hide();
+             
+            // This removes the error message container if all the LIs are hidden
+            // The below selector selects all LIs that have ther 'id' attribute begin with 'error-' AND are visible
+            // When none found ( == false) - means no errors are present and we should remove the container
+            if ($("li[id^='error-']").is(":visible") == false) { 
+                $("#error-container").hide(); 
+                $("#submit").button('enable');;
+                return true;
+            }
+        }
+}
+
+// This is to prevent quick 'create' presses. HTML form onsubmit attribute does not work with JQM
+function checkSubmit() {
+  $("input[type=text], textarea").blur(); // This essentially triggers checkInputs on every input
+  return $("#error-container").is(":hidden"); // If error-container is shown (hidden == false) - we have an error - do not submit.
+}
+
+//This is just a bit of aesthetics for your own exploration
+function starRequired() {
+  $(".required").each(function(){ $('label[for='+ $(this).attr('id') +']').append ('<span class="required-mark">*</span>'); });
+}
+
+</script>
+
+<!-- 
+  ######################################################
+  ### PAGE START
+  ######################################################
+-->  
+
+  <div data-role="header" data-position="inline">
+    <h1>Add New Asset</h1>
+    <a href="<%= url_for :action => :index %>" class="ui-btn-left" data-icon="back" data-direction="reverse">Cancel</a>
+  </div><!-- end header -->
+
+  <div data-role="content">
+    <form method="POST" action="<%= url_for :action => :create %>" id="submitForm">
+      <input type="hidden" name="id" value="<%= @asset.object %>"/>
+
+          <div data-role="fieldcontain">
+            <label for="assetName" class="fieldLabel">Name</label>
+            <input type="text" id="assetName" name="asset[Name]" maxlength="15" class= "required" placeholder="Name. <=15 characters. Required." />
+          </div>
+      
+          <div data-role="fieldcontain">
+            <label for="assetDescription" class="fieldLabel">Description</label>
+            <input type="text" id="assetDescription" name="asset[Description]" class= "required" placeholder="Description. Required." />
+          </div>
+      
+          <div data-role="fieldcontain">
+            <label for="assetSN" class="fieldLabel">Serial#</label>
+            <input type="text" id="assetSN" name="asset[SN]" placeholder="Manufacturer's S/N. Optional." />
+          </div>
+      
+          <div data-role="fieldcontain">
+            <label for="assetInvN" class="fieldLabel">Inventory#</label>
+            <input type="text" id="assetInvN" name="asset[InvN]" maxlength="7" class= "required len-7" placeholder="Inventory# 7 chars. Required" />
+          </div>
+
+          <div data-role="fieldcontain">
+            <label for="assetInstr" class="fieldLabel lbl-full-row">Inspection Instructions</label>
+            <textarea id="assetInstr" name="asset[Instr]" rows="8" style="width: 100%; border-color: #333;" class= "required" placeholder="Provide inspection procedure. Required."></textarea> 
+          </div>
+      
+      <!-- This holds all error messages. -->
+      <div id="error-container" class="error-message hidden">
+        The following errors were encountered. Please correct before continuing:
+        <ul>
+          <li id="error-assetName"        class="hidden">Name must be present</li>
+          <li id="error-assetDescription" class="hidden">Description must be present</li>
+          <li id="error-assetInvN"        class="hidden">Inventory# should be 7 chars</li>
+          <li id="error-assetInstr"       class="hidden">Instructions must be present</li>
+        </ul>
+      </div>
+
+      <input type="submit" id="submit" value="Create"/>
+    </form>
+  </div><!-- end content -->
+
+</div><!-- end view -->

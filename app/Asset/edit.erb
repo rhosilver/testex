@@ -1,0 +1,196 @@
+<div data-role="page"  id="editView">
+<!-- 
+  ######################################################
+  ### INLINE STYLE MUST BE WITHIN DIV
+  ### OTHERWISE WILL ONLY BE APPLIED AFTER PAGE RELOAD
+  ######################################################
+-->  
+<style type="text/css">
+/* 
+// This overrides JQM issue when displayed in RhoSimulator 
+// For whatever reason the screen width is deemed too small
+*/
+@media all {        
+    .ui-field-contain div.ui-input-text,
+    .ui-field-contain textarea.ui-input-text,
+    .ui-field-contain div.ui-controlgroup-controls,
+    .ui-field-contain .ui-input-search {
+        width: 65%;
+        display: inline-block;
+    }
+
+    .ui-field-contain label.ui-slider,
+    .ui-field-contain div.ui-controlgroup-label,
+    .ui-field-contain label.ui-input-text {
+        vertical-align: top;
+        display: inline-block;
+        width: 25%;
+        margin: 0 2% 0 0;
+    }
+}
+
+/* some overrides for labels that should span the whole row */
+.lbl-full-row {width: 100%!important; margin-bottom: 1%!important ;}
+
+/*
+// ############################################################
+// ### PICTURE SUPPORT
+// ############################################################
+*/
+img.asset_pic_thumb {
+      max-width: 95%;
+      max-height: 100px;
+      width: auto;
+      height: auto;
+      border: 1px solid #777777;
+    }
+
+</style>
+
+<script type="text/javascript">
+
+// ############################################################
+// ### PICTURE SUPPORT
+// ############################################################
+
+// This function is called from Camera callback and on page init
+// Set picture background to the placeholder or the 'real URL'
+function update_pic(p_url,p_src) {
+    //workaround for webkit not loading local files anymore
+    $("img#asset_pic").attr('src', p_src || "/public/images/_img_placeholder.jpg");
+    $("input#assetPicture").val(p_url);
+}
+
+</script>
+
+<!-- 
+  ######################################################
+  ### PAGE START
+  ######################################################
+-->  
+
+  <div data-role="header" data-position="inline">
+    <h1>Edit <%= @asset.Name %></h1>
+    <a href="<%= url_for :action => :show, :id => @asset.object %>" class="ui-btn-left" data-icon="back" data-direction="reverse">
+      Cancel
+    </a>
+    <a href="<%= url_for :action => :delete, :id => @asset.object %>" class="ui-btn-right" data-icon="delete" data-direction="reverse">
+      Delete
+    </a>
+  </div>
+
+  <div data-role="content">
+    <form method="POST" action="<%= url_for :action => :update %>">
+      <input type="hidden" name="id" value="<%= @asset.object %>"/>
+      
+          <div data-role="fieldcontain">
+            <label for="asset[Name]" class="fieldLabel">Name</label>
+            <input type="text" id="asset[Name]" name="asset[Name]" value="<%= @asset.Name %>" <%= placeholder( "Name" ) %> />
+          </div>
+      
+          <div data-role="fieldcontain">
+            <label for="asset[Description]" class="fieldLabel">Description</label>
+            <input type="text" id="asset[Description]" name="asset[Description]" maxlength="15" value="<%= @asset.Description %>" <%= placeholder( "Description" ) %> />
+          </div>
+      
+          <div data-role="fieldcontain">
+            <label for="asset[SN]" class="fieldLabel">Sn</label>
+            <input type="text" id="asset[SN]" name="asset[SN]" value="<%= @asset.SN %>" <%= placeholder( "Sn" ) %> />
+          </div>
+      
+          <div data-role="fieldcontain">
+            <label for="asset[InvN]" class="fieldLabel">Invn</label>
+            <input type="text" id="asset[InvN]" name="asset[InvN]" maxlength="7" value="<%= @asset.InvN %>" <%= placeholder( "Invn" ) %> />
+          </div>
+      
+          <div data-role="fieldcontain">
+            <fieldset data-role="controlgroup" data-type="horizontal">
+              <legend>Date:</legend>
+              <label for="d-day">DD</label>
+
+              <% #some init
+
+                d = @asset.Date(:placeholder) # These should be another safety check here for Time.at(0), but we'll ignore that
+                d_day, d_month, d_year   = d.strftime('%d').to_i, d.strftime('%m').to_i, d.strftime('%Y').to_i
+                months  = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+                #below you will see several different ways of walking arrays and ranges
+              %>
+
+              <select name="d-day" id="d-day" data-icon="false">
+                  <% 31.times do |x| %>
+                  <option value="<%= format('%02d',x+1) %>" <%= "selected" if x+1 == d_day %> ><%= x+1 %></option>
+                  <% end %>
+              </select>
+                
+              <label for="d-month">MM</label>
+              <select name="d-month" id="d-month" data-icon="false">
+                  <% months.each_index do |x| %>
+                  <option value="<%= format('%02d',x+1) %>" <%= "selected" if x+1 == d_month %> ><%= months[x] %></option>
+                  <% end %>
+              </select>
+                
+              <label for="d-year">YYYY</label>
+              <select name="d-year" id="d-year" data-icon="false">
+                  <% (2001..2020).each do |x| %>
+                  <option value="<%= x %>" <%= "selected" if x == d_year %> ><%= x %></option>
+                  <% end %>
+              </select>
+            </fieldset>
+          </div>
+          <!-- -->
+
+          <!-- 
+              RHO 'FEATURE'
+              Setting data-type to horizontal breaks rendering of radio buttons (cannot see which one is selected)
+              Buttons are working, but visually nothing happens
+              Cause: ui-button-up-c is applied even to the active button
+              This disappears as soon as data-theme changes to anything but "c" for Android (Rho default).
+              This disappears as soon as data-theme changes to anything but "a" for iPhone  (Rho default).
+              So we set the data-theme to "b" :) Or just use vertical buttons - they work.
+          -->
+          <div data-role="fieldcontain">
+            <fieldset data-role="controlgroup" data-type="horizontal">
+              <legend>State:</legend>
+            <!-- Creating buttons dynamically and checking the right one in process -->
+            <% Asset.valid_states.each do |key| %>
+              <input type="radio" name="asset[State]" data-theme="b" id="assetState<%= key %>" value="<%= key %>" <%= "checked" if (@asset.State == key) %>/>
+              <label for="assetState<%= key %>"><%= key %></label>
+            <% end %>
+            
+            </fieldset>
+
+          </div>
+          <!-- -->
+
+      <hr style="border-color: #777777">
+
+      <div class="ui-grid-a" id="pic_grid">
+        <div class="ui-block-a" style="text-align: center;">
+          <img class="asset_pic_thumb" id="asset_pic" src="<%= @asset.Picture(:with_placeholder) %>"/>
+          <input type="hidden" name="asset[Picture]" id="assetPicture" value="<%= @asset.Picture %>"/>
+        </div>
+        
+        <div class="ui-block-b">
+          <a href="#" onclick="$.get('<%= url_for :action => :get_a_pic %>')" data-role="button" data-mini="true">Take New Picture</a>
+          <a href="#" onclick="update_pic()" data-role="button" data-mini="true">Clear Picture</a>
+        </div>
+      </div>
+      
+      <hr style="border-color: #777777">
+
+          <div data-role="fieldcontain">
+            <label for="asset[Notes]" class="fieldLabel lbl-full-row">Inspection History and Notes</label>
+            <textarea id="asset[Notes]" name="asset[Notes]" rows="8" style="width: 100%; border-color: #333;" <% placeholder ("Notes") %>><%= @asset.Notes %></textarea> 
+          </div>
+
+          <div data-role="fieldcontain">
+            <label for="asset[Instr]" class="fieldLabel lbl-full-row">Inspection Instructions</label>
+            <textarea id="asset[Instr]" name="asset[Instr]" rows="8" style="width: 100%; border-color: #333;" <% placeholder ("Instr") %>><%= @asset.Instr %></textarea> 
+          </div>
+      
+      <input type="submit" value="Update"/>
+    </form>
+  </div>
+
+</div>

@@ -1,0 +1,233 @@
+<div data-role="page" id="assetIndexView">
+<!-- 
+  ######################################################
+  ### INLINE STYLE MUST BE WITHIN DIV
+  ### OTHERWISE WILL ONLY BE APPLIED AFTER PAGE RELOAD
+  ######################################################
+-->  
+
+<style type='text/css'>
+
+/* bubble count overrides */
+span.state_Pass { background: green; color: white;    }
+span.state_Skip { background: #FADB4E; color: #black; }
+span.state_Fail { background: red; color: white;      }
+span.state_N\/A {                                     } /* we're fine with defaults, keeping here for completeness */
+
+.ui-li-has-count .ui-li-count {text-decoration: none; font-weight: bolder;}
+/* */
+
+/* filter overrides */
+  .ui-body-c {text-shadow:none;}
+  .ui-input-text {color:black;}
+/* done */
+
+/* Picture support */
+.img_wrap {
+        float: left; 
+        width: 80px; height: 80px;
+        text-align: center; 
+        vertical-align: middle;
+        margin: -0.6em 1em -0.6em -0.6em;
+}
+
+.li_thumb { max-width: 80px; max-height: 80px; }
+
+</style>
+
+<script type="text/javascript">
+  $(document).on( "pageinit", "#assetIndexView", function() { 
+    scan_enum(); // Barcode support. Checks for scanner type and adjusts footer accordingly
+  });
+
+</script>
+
+<!-- 
+  ######################################################
+  ### PAGE START
+  ######################################################
+-->  
+
+	<div data-role="header" data-position="fixed">
+    <h1>Assets Index</h1>
+    <a href="<%= Rho::Application.startURI %>" class="ui-btn-left" data-icon="home" data-direction="reverse" <%= "data-ajax='false'" if is_bb6 %>>Home</a>
+    <% if (Login.is_admin?) %>
+    <a href="<%= url_for :action => :new %>" class="ui-btn-right" data-icon="plus">New</a>
+    <% end %>
+	</div>
+
+  
+  <div data-role="content">
+    <ul data-role="listview" data-filter="true" id="asset_list">
+
+      <% @assets.each do |asset| %>
+      
+          <li>
+            <a href="<%= url_for :action => :show, :id => asset.object %>">
+              <p class="img_wrap"><img class="li_thumb" src="<%= asset.Picture(:with_placeholder) %>" /></p>
+              <h2><%= asset.Name %></h2>
+              <p>Last inspected: <%= asset.insp_date(:day) %></p>
+              <p> <%= asset.TEST %>
+              <span class="ui-li-count state_<%= asset.State %>"><%= asset.State %></span>
+            </a>
+          </li>
+      
+      <% end %>
+<!-- 
+      After the AJAX index exercise is complete 
+      We can replace the "original" index with the template redreding directive (below)
+      This avoids duplication (maintaining two index templates)
+--><!-- <%= render :file => "Asset/_asset_list.erb" %> -->
+
+    </ul>
+  </div>
+
+  <div data-role="footer" data-position="fixed">
+    <!-- WIP CHECKBOX EXERCISE PART 1: FORM -->
+    <!--
+
+    <form id="wipform" 
+          action="<%= url_for :action => :index %>" 
+    >
+      <label for="wipflip">Show WIP items only
+      </label>
+      <input type="checkbox" data-mini="true" 
+             id="wipflip" 
+             name="q_state" 
+             value="WIP" 
+             <%= "checked" if (@q_state == "on") %> 
+             onchange="$('#wipform').submit()"
+      >      
+    </form>
+    -->
+    <!-- WIP CHECKBOX EXERCISE PART 1: FORM -->
+
+    <!-- WIP CHECKBOX EXERCISE PART 2: JS   -->
+    <!--
+      <label for="wipflip2">Show WIP items only (JS)
+      </label>
+      <input type="checkbox" data-mini="true" 
+             id="wipflip2" 
+             <%= "checked" if (@q_state == "on") %> 
+             onchange="index_filter()"
+      >
+
+      <script type="text/javascript">
+      //for compactness maniacs, this can all be done in a single  line of code
+      function index_filter() {
+        url_wip = '<%= url_for :action => :index, :query => {:q_state => "WIP" } %>';
+        url_all = '<%= url_for :action => :index %>';
+        nav_url = $('#wipflip2').prop('checked') ? url_wip : url_all ;
+        window.location.href = nav_url;
+      /*
+        do not use the usual JQM $.mobile.changePage(nav_url);
+        strange stuff will occur, like this: https://github.com/jquery/jquery-mobile/issues/5272
+        this may cause unwanted and hard to understand effects at some point
+       */ 
+        
+      }
+      </script>
+    -->
+      <!-- WIP CHECKBOX EXERCISE PART 2: JS   -->
+
+      <!-- WIP CHECKBOX EXERCISE PART 3: AJAX -->
+      <label for="wipflip3">Show WIP items only (AJAX)
+      </label>
+      <input type="checkbox" data-mini="true" 
+             id="wipflip3" 
+             <%= "checked" if (@q_state == "on") %> 
+             onchange="index_filter_ajax()"
+      >
+
+      <script type="text/javascript">
+        function index_filter_ajax() {
+
+            list = $('#asset_list').empty();
+            new_data = "<li>Empty</li>";
+
+            url_wip = '<%= url_for :action => :index, :query => {:q_state => "WIP" } %>';
+            url_all = '<%= url_for :action => :index %>';
+            nav_url = $('#wipflip3').prop('checked') ? url_wip : url_all ;
+
+            $.get(nav_url, {partial: true}) 
+                .done   (function(data) { new_data = data;                                })
+                .fail   (function()     { new_data = "AJAX Error";                        })
+                .always (function()     { list.html(new_data); list.listview('refresh');  });
+        }
+      </script>
+      <!-- WIP CHECKBOX EXERCISE PART 3: AJAX -->
+
+      <!-- BARCODE SUPPORT -->
+
+      <!-- Uncomment this button if you want to run scan_enum() manually (ran at page load by default) -->
+      <!--<a href="#"           id="scn_enum" data-role="button" onclick="scan_enum()">Check for scanner</a> -->
+      <a href="#"           id="scn_soft" data-role="button" onclick="soft_trigger();" style="display:none;" >Soft trigger</a>
+      <a href="#popup-scan" id="scn_sim"  data-role="button" data-rel="popup" data-position-to="window" data-transition="pop" style="display:none;">Sim Trigger</a>
+      <label for="scn_enum" id="scn_info">Scanner info here...</label>
+
+      <!-- Popup to enter data when running in Simulator -->  
+      <div data-role="popup" id="popup-scan" data-overlay-theme="b" data-theme="b">
+        <div data-role="header" data-theme="a"><h1>Barcode Sim</h1></div>
+        <div role="main" class="ui-content">
+          <h3 class="ui-title">Please enter barcode data here:</h3>
+          <input type="text" id="scn_sim_data" maxlength="15" style="color: white;"/>
+        
+          <a href="#" data-role="button" data-theme="c" data-rel="back" onclick="scan_callback({status: 'ok', barcode: $('#scn_sim_data').val()})" >OK</a>
+          <a href="#" data-role="button" data-theme="a" data-rel="back" onclick="scan_callback({status: 'cancel'})" >Back</a>
+        </div>
+      </div><!-- end popup -->
+
+      <script type="text/javascript">
+        var dedicated_scn_present = false;
+        var scn = null;
+        var is_RhoSim = Rho.System.isRhoSimulator;
+
+        //uncomment the scn_enum lines to make this function run with the button above
+        function scan_enum() {
+          if (!is_RhoSim) {
+
+              // Enumerate the scanners 
+              // Select the first real one
+              // Or select the last one
+              $.each (Rho.Barcode.enumerate(), function  (index, val) {
+                scn = val;
+                alert ("Scanner#: "+index+" , type:" + scn.scannerType);
+                if (scn.scannerType == "Imager" || scn.scannerType == "Laser") { dedicated_scn_present = true; return false;}
+              });
+
+              if (dedicated_scn_present) {
+                $("#scn_info").text("Dedicated scanner: " + scn.index + ", type: " + scn.scannerType + ". Trigger enabled");
+                scn.enable();
+                //$("#scn_enum").hide(); 
+              }
+              else if (scn) { // Camera/emulator scanner found
+               $("#scn_info").text("Camera/emu scanner: " + scn.index + ", type: " + scn.scannerType); 
+               $("#scn_soft").show();
+               //$("#scn_enum").hide(); 
+              }
+              else { $("#scn_info").text("Scanner not found!"); } //nothing found 
+
+          }
+          else { //simulated
+            $("#scn_info").text("Running Simulation");
+            $("#scn_sim").show();
+            //$("#scn_enum").hide();
+          }
+        }
+
+
+        function soft_trigger() { scn.take({}, scan_callback); }
+
+        function scan_callback(params) {
+          if (params["status"]=="ok") { $.get("<%= url_for :action=> :show_by_param %>", {param: params['barcode']}); } 
+          else { alert('Barcode scanning aborted'); }
+
+          if (!is_RhoSim) { Rho.Barcode.stop();}
+        }
+
+      </script>
+      <!-- BARCODE SUPPORT -->
+  </div>  
+  
+
+</div>
